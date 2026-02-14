@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:void_surge/core/providers/tutorial_provider.dart';
 import 'package:void_surge/features/game/models/game_world.dart';
 import 'package:void_surge/features/game/painters/void_surge_painter.dart';
 import 'package:void_surge/features/game/providers/void_surge_notifier.dart';
 import 'package:void_surge/features/game/widgets/game_over_overlay.dart';
+import 'package:void_surge/features/game/widgets/tutorial_overlay.dart';
 import 'package:void_surge/features/game/widgets/void_surge_hud.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
-  const GameScreen({super.key});
+  const GameScreen({super.key, this.showTutorial = false});
+
+  final bool showTutorial;
 
   @override
   ConsumerState<GameScreen> createState() => _GameScreenState();
@@ -18,12 +22,16 @@ class _GameScreenState extends ConsumerState<GameScreen>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   Duration _lastTime = Duration.zero;
+  late bool _showingTutorial;
 
   @override
   void initState() {
     super.initState();
+    _showingTutorial = widget.showTutorial;
     _ticker = createTicker(_onTick);
-    _ticker.start();
+    if (!_showingTutorial) {
+      _ticker.start();
+    }
   }
 
   void _onTick(Duration elapsed) {
@@ -97,6 +105,18 @@ class _GameScreenState extends ConsumerState<GameScreen>
                     },
                     onHome: () {
                       Navigator.of(context).pop();
+                    },
+                  ),
+
+                // Tutorial overlay
+                if (_showingTutorial)
+                  TutorialOverlay(
+                    onComplete: () {
+                      setState(() => _showingTutorial = false);
+                      ref
+                          .read(tutorialCompletedProvider.notifier)
+                          .markCompleted();
+                      _ticker.start();
                     },
                   ),
               ],

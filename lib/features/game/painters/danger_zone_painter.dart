@@ -7,9 +7,8 @@ import 'package:void_surge/features/game/models/game_world.dart';
 import 'package:void_surge/features/game/models/vec2.dart';
 
 abstract final class DangerZonePainter {
-  static final Paint _dangerPaint = Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.0;
+  static final Paint _p = Paint();
+  static final Paint _strokeP = Paint()..style = PaintingStyle.stroke;
 
   static void paint(Canvas canvas, GameWorld world) {
     final camera = world.camera;
@@ -21,33 +20,32 @@ abstract final class DangerZonePainter {
       final pullRadius =
           enemy.radius * VoidSurgeConstants.pullRadiusMultiplier;
 
-      // Skip if not visible
       if (!_isCircleVisible(enemy.position, pullRadius, visibleRect)) continue;
 
-      _paintPixelRing(
+      _paintDangerZone(
         canvas,
         camera,
         enemy.position,
         pullRadius,
-        VoidSurgeConstants.enemyColor.withValues(alpha: 0.4),
+        VoidSurgeConstants.enemyColor,
         world.gameTime,
       );
     }
 
-    // Player's own gravity range (subtle)
-    final playerPull = world.player.radius *
-        VoidSurgeConstants.pullRadiusMultiplier;
-    _paintPixelRing(
+    // Player gravity range (subtle)
+    final playerPull =
+        world.player.radius * VoidSurgeConstants.pullRadiusMultiplier;
+    _paintGravityField(
       canvas,
       camera,
       world.player.position,
       playerPull,
-      VoidSurgeConstants.playerColor.withValues(alpha: 0.2),
+      VoidSurgeConstants.playerColor,
       world.gameTime,
     );
   }
 
-  static void _paintPixelRing(
+  static void _paintDangerZone(
     Canvas canvas,
     GameCamera camera,
     Vec2 center,
@@ -55,24 +53,74 @@ abstract final class DangerZonePainter {
     Color color,
     double time,
   ) {
-    _dangerPaint.color = color;
-    const segments = 32;
-    final dashOffset = (time * 2) % (2 * pi / segments);
+    final screenPos = camera.worldToScreen(center);
+    final screenRadius = radius * camera.zoom;
 
-    for (var i = 0; i < segments; i++) {
-      if (i % 2 == 0) continue; // Dashed
-      final a1 = (i / segments) * 2 * pi + dashOffset;
-      final a2 = ((i + 1) / segments) * 2 * pi + dashOffset;
+    // Radial danger gradient fill
+    _p
+      ..shader = RadialGradient(
+        colors: [
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: 0.03),
+          color.withValues(alpha: 0.08),
+          color.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.5, 0.85, 1.0],
+      ).createShader(
+          Rect.fromCircle(center: screenPos, radius: screenRadius))
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(screenPos, screenRadius, _p);
+    _p.shader = null;
 
-      final p1 = camera.worldToScreen(
-        Vec2(center.x + cos(a1) * radius, center.y + sin(a1) * radius),
-      );
-      final p2 = camera.worldToScreen(
-        Vec2(center.x + cos(a2) * radius, center.y + sin(a2) * radius),
-      );
+    // Animated dashed ring
+    final pulse = (sin(time * 3) + 1) / 2;
+    final dashAlpha = 0.2 + pulse * 0.3;
 
-      canvas.drawLine(p1, p2, _dangerPaint);
-    }
+    _strokeP
+      ..shader = SweepGradient(
+        colors: [
+          color.withValues(alpha: dashAlpha),
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: dashAlpha),
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: dashAlpha),
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: dashAlpha),
+          color.withValues(alpha: 0.0),
+        ],
+        transform: GradientRotation(time * 1.5),
+      ).createShader(
+          Rect.fromCircle(center: screenPos, radius: screenRadius))
+      ..strokeWidth = (screenRadius * 0.02).clamp(1.0, 3.0);
+    canvas.drawCircle(screenPos, screenRadius, _strokeP);
+    _strokeP.shader = null;
+  }
+
+  static void _paintGravityField(
+    Canvas canvas,
+    GameCamera camera,
+    Vec2 center,
+    double radius,
+    Color color,
+    double time,
+  ) {
+    final screenPos = camera.worldToScreen(center);
+    final screenRadius = radius * camera.zoom;
+
+    _strokeP
+      ..shader = SweepGradient(
+        colors: [
+          color.withValues(alpha: 0.12),
+          color.withValues(alpha: 0.0),
+          color.withValues(alpha: 0.12),
+          color.withValues(alpha: 0.0),
+        ],
+        transform: GradientRotation(time * 0.5),
+      ).createShader(
+          Rect.fromCircle(center: screenPos, radius: screenRadius))
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(screenPos, screenRadius, _strokeP);
+    _strokeP.shader = null;
   }
 
   static bool _isCircleVisible(Vec2 center, double radius, Rect visibleRect) {

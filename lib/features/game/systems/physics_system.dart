@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:void_surge/core/constants/void_surge_constants.dart';
+import 'package:void_surge/features/game/models/absorption_effect.dart';
 import 'package:void_surge/features/game/models/enemy_black_hole.dart';
 import 'package:void_surge/features/game/models/entity.dart';
 import 'package:void_surge/features/game/models/game_world.dart';
@@ -72,26 +73,35 @@ abstract final class PhysicsSystem {
       }
     }
 
-    // Planet <-> BlackHole gravity (planets pulled toward nearby black holes)
+    // Planet <-> BlackHole gravity (bidirectional)
     for (var pi = 0; pi < world.planets.length; pi++) {
       final planet = world.planets[pi];
+      final planetPull = planet.radius *
+          VoidSurgeConstants.pullRadiusMultiplier *
+          VoidSurgeConstants.planetGravityMultiplier;
 
-      // Player pulls planets
+      // Player pulls planets + planet pulls player
       final distToPlayer = planet.position.distanceTo(playerEntity.position);
       final playerPull = playerEntity.radius * VoidSurgeConstants.pullRadiusMultiplier;
-      if (distToPlayer < playerPull) {
+      if (distToPlayer < playerPull || distToPlayer < planetPull) {
         final force = _gravityForce(planet.entity, playerEntity);
         planetVels[pi] = planetVels[pi] + force * (dt / planet.mass);
+        // Reverse force: planet pulls player toward it
+        final reverseForce = force * VoidSurgeConstants.planetGravityMultiplier;
+        playerVel = playerVel - reverseForce * (dt / playerEntity.mass);
       }
 
-      // Enemies pull planets
+      // Enemies pull planets + planet pulls enemies
       for (var ei = 0; ei < world.enemies.length; ei++) {
         final enemy = world.enemies[ei];
         final distToEnemy = planet.position.distanceTo(enemy.position);
         final enemyPull = enemy.radius * VoidSurgeConstants.pullRadiusMultiplier;
-        if (distToEnemy < enemyPull) {
+        if (distToEnemy < enemyPull || distToEnemy < planetPull) {
           final force = _gravityForce(planet.entity, enemy.entity);
           planetVels[pi] = planetVels[pi] + force * (dt / planet.mass);
+          // Reverse force: planet pulls enemy toward it
+          final reverseForce = force * VoidSurgeConstants.planetGravityMultiplier;
+          enemyVels[ei] = enemyVels[ei] - reverseForce * (dt / enemy.mass);
         }
       }
     }
@@ -151,6 +161,8 @@ abstract final class PhysicsSystem {
     var player = world.player;
     final remainingPlanets = <Planet>[];
     final remainingEnemies = List<EnemyBlackHole>.from(world.enemies);
+    final newEffects = List<AbsorptionEffect>.from(world.absorptionEffects);
+    var effectId = world.nextEntityId + 1000;
 
     // Player eats planets
     for (final planet in world.planets) {
@@ -158,13 +170,49 @@ abstract final class PhysicsSystem {
       final absorptionDist =
           (player.radius + planet.radius) * VoidSurgeConstants.absorptionRadiusMultiplier;
       if (dist < absorptionDist) {
-        final newMass =
+        var newMass =
             player.mass + planet.mass * VoidSurgeConstants.planetAbsorptionRatio;
+
+        // Special planet effects
+        double? speedBoostEnd;
+        double? scoreMultiplierEnd;
+        switch (planet.type) {
+          case PlanetType.redDwarf:
+            speedBoostEnd =
+                world.gameTime + VoidSurgeConstants.redDwarfDuration;
+          case PlanetType.whiteDwarf:
+            scoreMultiplierEnd =
+                world.gameTime + VoidSurgeConstants.whiteDwarfDuration;
+          case PlanetType.blackDwarf:
+            newMass += player.mass * VoidSurgeConstants.blackDwarfMassBoostRatio;
+          case PlanetType.normal:
+            break;
+        }
+
+        // Score multiplier from active white dwarf buff
+        final scoreMultiplier =
+            player.hasScoreMultiplier(world.gameTime)
+                ? VoidSurgeConstants.whiteDwarfScoreMultiplier.toInt()
+                : 1;
+        final points = VoidSurgeConstants.pointsPerPlanet * scoreMultiplier;
+
         player = player.copyWith(
           entity: player.entity.copyWith(mass: newMass),
-          score: player.score + VoidSurgeConstants.pointsPerPlanet,
+          score: player.score + points,
           planetsEaten: player.planetsEaten + 1,
+          speedBoostEndTime: speedBoostEnd ?? player.speedBoostEndTime,
+          scoreMultiplierEndTime:
+              scoreMultiplierEnd ?? player.scoreMultiplierEndTime,
         );
+        newEffects.add(AbsorptionEffect(
+          id: effectId++,
+          position: planet.position,
+          targetPosition: player.position,
+          color: planet.color,
+          startTime: world.gameTime,
+          duration: VoidSurgeConstants.absorptionEffectDuration,
+          initialRadius: planet.radius,
+        ));
       } else {
         remainingPlanets.add(planet);
       }
@@ -185,6 +233,15 @@ abstract final class PhysicsSystem {
           remainingEnemies[i] = enemy.copyWith(
             entity: enemy.entity.copyWith(mass: newMass),
           );
+          newEffects.add(AbsorptionEffect(
+            id: effectId++,
+            position: planet.position,
+            targetPosition: enemy.position,
+            color: planet.color,
+            startTime: world.gameTime,
+            duration: VoidSurgeConstants.absorptionEffectDuration,
+            initialRadius: planet.radius,
+          ));
           eaten = true;
           break;
         }
@@ -203,11 +260,25 @@ abstract final class PhysicsSystem {
           // Player absorbs enemy
           final newMass =
               player.mass + enemy.mass * VoidSurgeConstants.blackHoleAbsorptionRatio;
+          final bhScoreMultiplier =
+              player.hasScoreMultiplier(world.gameTime)
+                  ? VoidSurgeConstants.whiteDwarfScoreMultiplier.toInt()
+                  : 1;
           player = player.copyWith(
             entity: player.entity.copyWith(mass: newMass),
-            score: player.score + VoidSurgeConstants.pointsPerBlackHole,
+            score: player.score +
+                VoidSurgeConstants.pointsPerBlackHole * bhScoreMultiplier,
             blackHolesAbsorbed: player.blackHolesAbsorbed + 1,
           );
+          newEffects.add(AbsorptionEffect(
+            id: effectId++,
+            position: enemy.position,
+            targetPosition: player.position,
+            color: VoidSurgeConstants.enemyColor,
+            startTime: world.gameTime,
+            duration: VoidSurgeConstants.absorptionEffectDuration * 1.5,
+            initialRadius: enemy.radius,
+          ));
         } else {
           // Player dies
           player = player.copyWith(isAlive: false);
@@ -248,10 +319,14 @@ abstract final class PhysicsSystem {
       if (!consumed.contains(i)) finalEnemies.add(enemy);
     }
 
+    // Clean expired effects
+    newEffects.removeWhere((e) => e.isExpired(world.gameTime));
+
     return world.copyWith(
       player: player,
       enemies: finalEnemies,
       planets: planetsAfterEnemies,
+      absorptionEffects: newEffects,
     );
   }
 

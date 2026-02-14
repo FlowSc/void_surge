@@ -10,6 +10,8 @@ class Player {
   final int score;
   final int planetsEaten;
   final int blackHolesAbsorbed;
+  final double speedBoostEndTime;
+  final double scoreMultiplierEndTime;
 
   const Player({
     required this.entity,
@@ -20,12 +22,17 @@ class Player {
     this.score = 0,
     this.planetsEaten = 0,
     this.blackHolesAbsorbed = 0,
+    this.speedBoostEndTime = 0,
+    this.scoreMultiplierEndTime = 0,
   });
 
   double get mass => entity.mass;
   double get radius => entity.radius;
   Vec2 get position => entity.position;
   Vec2 get velocity => entity.velocity;
+
+  bool hasSpeedBoost(double gameTime) => gameTime < speedBoostEndTime;
+  bool hasScoreMultiplier(double gameTime) => gameTime < scoreMultiplierEndTime;
 
   Player copyWith({
     Entity? entity,
@@ -36,6 +43,8 @@ class Player {
     int? score,
     int? planetsEaten,
     int? blackHolesAbsorbed,
+    double? speedBoostEndTime,
+    double? scoreMultiplierEndTime,
   }) {
     return Player(
       entity: entity ?? this.entity,
@@ -47,6 +56,9 @@ class Player {
       score: score ?? this.score,
       planetsEaten: planetsEaten ?? this.planetsEaten,
       blackHolesAbsorbed: blackHolesAbsorbed ?? this.blackHolesAbsorbed,
+      speedBoostEndTime: speedBoostEndTime ?? this.speedBoostEndTime,
+      scoreMultiplierEndTime:
+          scoreMultiplierEndTime ?? this.scoreMultiplierEndTime,
     );
   }
 }

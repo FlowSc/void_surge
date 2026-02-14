@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:void_surge/core/constants/void_surge_constants.dart';
+import 'package:void_surge/features/game/models/absorption_effect.dart';
 import 'package:void_surge/features/game/models/camera.dart';
 import 'package:void_surge/features/game/models/enemy_black_hole.dart';
 import 'package:void_surge/features/game/models/entity.dart';
@@ -32,6 +33,7 @@ class GameWorld {
   final double fieldRadius;
   final double gameTime;
   final List<BackgroundStar> backgroundStars;
+  final List<AbsorptionEffect> absorptionEffects;
   final int nextEntityId;
   final double lastPlanetSpawnTime;
   final double lastEnemySpawnTime;
@@ -46,6 +48,7 @@ class GameWorld {
     required this.fieldRadius,
     this.gameTime = 0,
     this.backgroundStars = const [],
+    this.absorptionEffects = const [],
     this.nextEntityId = 100,
     this.lastPlanetSpawnTime = 0,
     this.lastEnemySpawnTime = 0,
@@ -76,13 +79,27 @@ class GameWorld {
     for (var i = 0; i < VoidSurgeConstants.initialPlanetCount; i++) {
       final pos = Vec2.random(rng, VoidSurgeConstants.initialFieldRadius * 0.9);
       if (pos.length < 50) continue;
-      final mass = VoidSurgeConstants.planetMinMass +
-          rng.nextDouble() *
-              (VoidSurgeConstants.planetMaxMass -
-                  VoidSurgeConstants.planetMinMass);
+
+      final isSpecial =
+          rng.nextDouble() < VoidSurgeConstants.specialPlanetSpawnChance;
+      final planetType = isSpecial ? _randomSpecialType(rng) : PlanetType.normal;
+
+      final double mass;
+      if (isSpecial) {
+        mass = 0.5 + rng.nextDouble() * 0.4;
+      } else {
+        mass = VoidSurgeConstants.planetMinMass +
+            rng.nextDouble() *
+                (VoidSurgeConstants.planetMaxMass -
+                    VoidSurgeConstants.planetMinMass);
+      }
+
       planets.add(Planet(
         entity: Entity(id: entityId++, position: pos, mass: mass),
-        color: _randomPlanetColor(rng),
+        color: isSpecial
+            ? _specialPlanetColor(planetType)
+            : _randomPlanetColor(rng),
+        type: planetType,
       ));
     }
 
@@ -107,6 +124,20 @@ class GameWorld {
     return colors[rng.nextInt(colors.length)];
   }
 
+  static PlanetType _randomSpecialType(Random rng) {
+    const types = [PlanetType.redDwarf, PlanetType.whiteDwarf, PlanetType.blackDwarf];
+    return types[rng.nextInt(types.length)];
+  }
+
+  static Color _specialPlanetColor(PlanetType type) {
+    return switch (type) {
+      PlanetType.redDwarf => VoidSurgeConstants.redDwarfColor,
+      PlanetType.whiteDwarf => VoidSurgeConstants.whiteDwarfColor,
+      PlanetType.blackDwarf => VoidSurgeConstants.blackDwarfColor,
+      PlanetType.normal => VoidSurgeConstants.planetColor,
+    };
+  }
+
   GameWorld copyWith({
     Player? player,
     List<EnemyBlackHole>? enemies,
@@ -116,6 +147,7 @@ class GameWorld {
     double? fieldRadius,
     double? gameTime,
     List<BackgroundStar>? backgroundStars,
+    List<AbsorptionEffect>? absorptionEffects,
     int? nextEntityId,
     double? lastPlanetSpawnTime,
     double? lastEnemySpawnTime,
@@ -130,6 +162,7 @@ class GameWorld {
       fieldRadius: fieldRadius ?? this.fieldRadius,
       gameTime: gameTime ?? this.gameTime,
       backgroundStars: backgroundStars ?? this.backgroundStars,
+      absorptionEffects: absorptionEffects ?? this.absorptionEffects,
       nextEntityId: nextEntityId ?? this.nextEntityId,
       lastPlanetSpawnTime: lastPlanetSpawnTime ?? this.lastPlanetSpawnTime,
       lastEnemySpawnTime: lastEnemySpawnTime ?? this.lastEnemySpawnTime,

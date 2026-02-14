@@ -1,17 +1,19 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:void_surge/core/constants/void_surge_constants.dart';
+import 'package:void_surge/core/providers/tutorial_provider.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
 
@@ -32,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tutorialCompleted = ref.watch(tutorialCompletedProvider);
+
     return Scaffold(
       backgroundColor: VoidSurgeConstants.backgroundColor,
       body: Center(
@@ -89,7 +93,13 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               },
               child: GestureDetector(
-                onTap: () => context.go('/game'),
+                onTap: () {
+                  if (tutorialCompleted) {
+                    context.go('/game');
+                  } else {
+                    context.go('/game?tutorial=true');
+                  }
+                },
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
@@ -111,7 +121,32 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
 
-            const SizedBox(height: 80),
+            const SizedBox(height: 24),
+
+            // Settings button
+            GestureDetector(
+              onTap: () => context.go('/settings'),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.white24,
+                    width: 1,
+                  ),
+                ),
+                child: const Text(
+                  'SETTINGS',
+                  style: TextStyle(
+                    fontFamily: 'PressStart2P',
+                    fontSize: 10,
+                    color: Colors.white38,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 60),
             const Text(
               'TAP TO MOVE  /  TAP FAST TO ESCAPE',
               style: TextStyle(

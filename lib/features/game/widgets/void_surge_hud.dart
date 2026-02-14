@@ -55,6 +55,34 @@ class VoidSurgeHud extends StatelessWidget {
               ],
             ),
 
+            // Active buffs
+            if (player.hasSpeedBoost(world.gameTime) ||
+                player.hasScoreMultiplier(world.gameTime)) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (player.hasSpeedBoost(world.gameTime))
+                    _PixelText(
+                      'SPD x${VoidSurgeConstants.redDwarfSpeedMultiplier.toStringAsFixed(1)}'
+                      '  ${(player.speedBoostEndTime - world.gameTime).ceil()}s',
+                      color: VoidSurgeConstants.redDwarfColor,
+                      fontSize: 8,
+                    ),
+                  if (player.hasSpeedBoost(world.gameTime) &&
+                      player.hasScoreMultiplier(world.gameTime))
+                    const SizedBox(width: 12),
+                  if (player.hasScoreMultiplier(world.gameTime))
+                    _PixelText(
+                      'PTS x${VoidSurgeConstants.whiteDwarfScoreMultiplier.toInt()}'
+                      '  ${(player.scoreMultiplierEndTime - world.gameTime).ceil()}s',
+                      color: VoidSurgeConstants.whiteDwarfColor,
+                      fontSize: 8,
+                    ),
+                ],
+              ),
+            ],
+
             // Escape gauge
             if (inDanger) ...[
               const SizedBox(height: 8),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:void_surge/features/game/models/game_world.dart';
 import 'package:void_surge/features/game/painters/background_painter.dart';
 import 'package:void_surge/features/game/painters/danger_zone_painter.dart';
+import 'package:void_surge/features/game/painters/effect_painter.dart';
 import 'package:void_surge/features/game/painters/entity_painter.dart';
 
 class VoidSurgePainter extends CustomPainter {
@@ -21,7 +22,13 @@ class VoidSurgePainter extends CustomPainter {
     DangerZonePainter.paint(canvas, world);
 
     // 3. Planets
-    EntityPainter.paintPlanets(canvas, camera, world.planets, visibleRect);
+    EntityPainter.paintPlanets(
+      canvas,
+      camera,
+      world.planets,
+      visibleRect,
+      world.gameTime,
+    );
 
     // 4. Enemies
     EntityPainter.paintEnemies(
@@ -34,6 +41,14 @@ class VoidSurgePainter extends CustomPainter {
 
     // 5. Player
     EntityPainter.paintPlayer(canvas, camera, world.player, world.gameTime);
+
+    // 6. Absorption effects (top-most layer)
+    EffectPainter.paint(
+      canvas,
+      camera,
+      world.absorptionEffects,
+      world.gameTime,
+    );
   }
 
   @override

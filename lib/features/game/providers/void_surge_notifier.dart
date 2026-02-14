@@ -66,10 +66,18 @@ class VoidSurgeNotifier extends _$VoidSurgeNotifier {
     final target = player.targetPosition;
     var vel = player.velocity;
 
+    final speedMult = player.hasSpeedBoost(world.gameTime)
+        ? VoidSurgeConstants.redDwarfSpeedMultiplier
+        : 1.0;
+
     if (target != null) {
       final dir = (target - player.position);
       if (dir.length > 5) {
-        vel = vel + dir.normalized * VoidSurgeConstants.playerAcceleration * dt;
+        vel = vel +
+            dir.normalized *
+                VoidSurgeConstants.playerAcceleration *
+                speedMult *
+                dt;
       }
     }
 
@@ -77,7 +85,7 @@ class VoidSurgeNotifier extends _$VoidSurgeNotifier {
     vel = vel * (1.0 / (1.0 + VoidSurgeConstants.playerDrag * dt));
 
     // Clamp speed
-    vel = vel.clampLength(VoidSurgeConstants.playerMaxSpeed);
+    vel = vel.clampLength(VoidSurgeConstants.playerMaxSpeed * speedMult);
 
     return world.copyWith(
       player: player.copyWith(

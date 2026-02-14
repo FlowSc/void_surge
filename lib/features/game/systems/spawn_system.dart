@@ -29,10 +29,19 @@ abstract final class SpawnSystem {
     // Don't spawn too close to player
     if (pos.distanceTo(world.player.position) < 80) return world;
 
-    final mass = VoidSurgeConstants.planetMinMass +
-        _rng.nextDouble() *
-            (VoidSurgeConstants.planetMaxMass -
-                VoidSurgeConstants.planetMinMass);
+    final isSpecial =
+        _rng.nextDouble() < VoidSurgeConstants.specialPlanetSpawnChance;
+    final planetType = isSpecial ? _randomSpecialType() : PlanetType.normal;
+
+    final double mass;
+    if (isSpecial) {
+      mass = 0.5 + _rng.nextDouble() * 0.4; // 0.5~0.9
+    } else {
+      mass = VoidSurgeConstants.planetMinMass +
+          _rng.nextDouble() *
+              (VoidSurgeConstants.planetMaxMass -
+                  VoidSurgeConstants.planetMinMass);
+    }
 
     final planet = Planet(
       entity: Entity(
@@ -40,7 +49,8 @@ abstract final class SpawnSystem {
         position: pos,
         mass: mass,
       ),
-      color: _randomPlanetColor(),
+      color: isSpecial ? _specialPlanetColor(planetType) : _randomPlanetColor(),
+      type: planetType,
     );
 
     return world.copyWith(
@@ -106,5 +116,19 @@ abstract final class SpawnSystem {
       Color(0xFF88DDFF),
     ];
     return colors[_rng.nextInt(colors.length)];
+  }
+
+  static PlanetType _randomSpecialType() {
+    const types = [PlanetType.redDwarf, PlanetType.whiteDwarf, PlanetType.blackDwarf];
+    return types[_rng.nextInt(types.length)];
+  }
+
+  static Color _specialPlanetColor(PlanetType type) {
+    return switch (type) {
+      PlanetType.redDwarf => VoidSurgeConstants.redDwarfColor,
+      PlanetType.whiteDwarf => VoidSurgeConstants.whiteDwarfColor,
+      PlanetType.blackDwarf => VoidSurgeConstants.blackDwarfColor,
+      PlanetType.normal => VoidSurgeConstants.planetColor,
+    };
   }
 }
