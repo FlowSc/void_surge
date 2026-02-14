@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:void_surge/core/constants/void_surge_constants.dart';
@@ -43,6 +44,12 @@ abstract final class EntityPainter {
           _paintWhiteDwarf(canvas, pos, r, planet.color, gameTime);
         case PlanetType.blackDwarf:
           _paintBlackDwarf(canvas, pos, r, planet.color, gameTime);
+        case PlanetType.nebula:
+          _paintNebula(canvas, pos, r, planet.color, gameTime);
+        case PlanetType.starCluster:
+          _paintStarCluster(canvas, pos, r, planet.color, gameTime);
+        case PlanetType.galaxy:
+          _paintGalaxy(canvas, pos, r, planet.color, gameTime);
         case PlanetType.normal:
           _paintPixelPlanet(canvas, pos, r, planet.color);
       }
@@ -55,7 +62,7 @@ abstract final class EntityPainter {
     double r,
     Color color,
   ) {
-    final dark = _lerpColor(color, Colors.black, 0.5);
+    final dark = _lerpColor(color, Colors.black, 0.6);
     final mid = _lerpColor(color, Colors.black, 0.2);
     final light = _lerpColor(color, Colors.white, 0.3);
 
@@ -66,51 +73,57 @@ abstract final class EntityPainter {
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, r * 1.8, _p);
 
-    // Stepped shading: 3 concentric circles (dark → mid → light)
-    // Layer 1: dark base (full circle)
-    _p.color = dark;
+    // Drop shadow
+    final shadowCenter = center + Offset(r * 0.18, r * 0.22);
+    _p
+      ..shader = ui.Gradient.radial(
+        shadowCenter,
+        r * 1.35,
+        [
+          Colors.black.withValues(alpha: 0.4),
+          Colors.black.withValues(alpha: 0.0),
+        ],
+      )
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(shadowCenter, r * 1.35, _p);
+
+    // Sphere body — radial gradient with focal offset for 3D lighting
+    final focal = center + Offset(-r * 0.55, -r * 0.55);
+    _p.shader = ui.Gradient.radial(
+      center,
+      r,
+      [light, color, mid, dark],
+      [0.0, 0.35, 0.7, 1.0],
+      TileMode.clamp,
+      null,
+      focal,
+      r * 0.1,
+    );
     canvas.drawCircle(center, r, _p);
 
-    // Layer 2: mid-tone (offset slightly top-left)
-    _p.color = mid;
-    canvas.drawCircle(
-      Offset(center.dx - r * 0.08, center.dy - r * 0.08),
-      r * 0.85,
-      _p,
-    );
-
-    // Layer 3: lit face (top-left area)
-    _p.color = color;
-    canvas.drawCircle(
-      Offset(center.dx - r * 0.2, center.dy - r * 0.2),
-      r * 0.6,
-      _p,
-    );
-
-    // Highlight spot
-    if (r > 4) {
-      _p.color = light;
-      canvas.drawCircle(
-        Offset(center.dx - r * 0.35, center.dy - r * 0.35),
-        r * 0.2,
-        _p,
-      );
-    }
+    // Rim lighting (edge glow)
+    _strokeP
+      ..shader = null
+      ..color = light.withValues(alpha: 0.25)
+      ..strokeWidth = r * 0.12
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(center, r - r * 0.06, _strokeP);
 
     // Specular dot
     if (r > 6) {
-      _p.color = Colors.white.withValues(alpha: 0.7);
+      _p
+        ..shader = null
+        ..color = Colors.white.withValues(alpha: 0.7);
       canvas.drawCircle(
-        Offset(center.dx - r * 0.4, center.dy - r * 0.4),
-        r * 0.08,
+        center + Offset(-r * 0.30, -r * 0.30),
+        r * 0.07,
         _p,
       );
     }
 
-    // 1px outline
+    // Thin outline
     _strokeP
-      ..shader = null
-      ..color = dark.withValues(alpha: 0.8)
+      ..color = dark.withValues(alpha: 0.6)
       ..strokeWidth = 1.0;
     canvas.drawCircle(center, r, _strokeP);
   }
@@ -326,41 +339,82 @@ abstract final class EntityPainter {
     double seed,
   ) {
     final bright = _lerpColor(color, Colors.white, 0.4);
+    final pulse = 0.85 + 0.15 * sin(time * 1.5 + seed);
 
-    // 1) Halo glow
+    // 0) Gravitational drop shadow
+    final shadowCenter = center + Offset(r * 0.1, r * 0.15);
     _p
-      ..shader = null
-      ..color = color.withValues(alpha: 0.06)
+      ..shader = ui.Gradient.radial(
+        shadowCenter,
+        r * 2.0,
+        [
+          Colors.black.withValues(alpha: 0.5),
+          Colors.black.withValues(alpha: 0.0),
+        ],
+      )
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, r * 3.0, _p);
-    _p.color = color.withValues(alpha: 0.1);
-    canvas.drawCircle(center, r * 2.0, _p);
+    canvas.drawCircle(shadowCenter, r * 2.0, _p);
+
+    // 1) Pulsing corona (radial gradient)
+    _p.shader = ui.Gradient.radial(
+      center,
+      r * 3.0 * pulse,
+      [
+        color.withValues(alpha: 0.0),
+        color.withValues(alpha: 0.08 * pulse),
+        color.withValues(alpha: 0.04 * pulse),
+        color.withValues(alpha: 0.0),
+      ],
+      [0.0, 0.3, 0.6, 1.0],
+    );
+    canvas.drawCircle(center, r * 3.0 * pulse, _p);
 
     // 2) Accretion disc — segmented ring (back half)
     _paintRetroAccretionDisc(canvas, center, r, color, time, seed, back: true);
 
     // 3) Event horizon — dark core with colored edge
-    _p.color = color.withValues(alpha: 0.3);
+    _p
+      ..shader = null
+      ..color = color.withValues(alpha: 0.3);
     canvas.drawCircle(center, r * 1.05, _p);
     _p.color = const Color(0xFF000000);
     canvas.drawCircle(center, r, _p);
 
-    // 4) Photon ring — dashed circle outline
+    // 4) Gravitational lensing ring (gradient stroke)
+    _strokeP
+      ..shader = ui.Gradient.sweep(
+        center,
+        [
+          bright.withValues(alpha: 0.6),
+          color.withValues(alpha: 0.1),
+          bright.withValues(alpha: 0.5),
+          color.withValues(alpha: 0.1),
+          bright.withValues(alpha: 0.6),
+        ],
+        [0.0, 0.25, 0.5, 0.75, 1.0],
+      )
+      ..strokeWidth = (r * 0.08).clamp(1.5, 5.0)
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(center, r * 1.15, _strokeP);
+
+    // 5) Photon ring — dashed circle outline
     _paintDashedCircle(canvas, center, r * 1.1, color, time, seed);
 
-    // 5) Inner glow ring
+    // 6) Inner glow ring
     _strokeP
       ..shader = null
       ..color = color.withValues(alpha: 0.2)
       ..strokeWidth = 1.0;
     canvas.drawCircle(center, r * 0.85, _strokeP);
 
-    // 6) Accretion disc — front half
+    // 7) Accretion disc — front half
     _paintRetroAccretionDisc(canvas, center, r, color, time, seed, back: false);
 
-    // 7) Central bright dot
+    // 8) Central bright dot
     if (r > 10) {
-      _p.color = bright.withValues(alpha: 0.4);
+      _p
+        ..shader = null
+        ..color = bright.withValues(alpha: 0.4);
       canvas.drawCircle(center, (r * 0.08).clamp(1.0, 4.0), _p);
     }
   }
@@ -506,6 +560,213 @@ abstract final class EntityPainter {
         center.dy + screenRadius * 1.3 + 4,
       ),
     );
+  }
+
+  // ─── Large Celestial Bodies ────────────────────────────────
+
+  static void _paintNebula(
+    Canvas canvas,
+    Offset center,
+    double r,
+    Color color,
+    double gameTime,
+  ) {
+    final drift = sin(gameTime * 0.5) * r * 0.05;
+    final pink = _lerpColor(color, const Color(0xFFFF66CC), 0.4);
+
+    // Outer gas cloud layers
+    for (var i = 3; i >= 0; i--) {
+      final layerR = r * (1.0 + i * 0.3);
+      final alpha = 0.06 + i * 0.02;
+      final layerColor = i.isEven ? color : pink;
+      _p
+        ..shader = ui.Gradient.radial(
+          center + Offset(drift * (i - 1.5), drift * (i - 2)),
+          layerR,
+          [
+            layerColor.withValues(alpha: alpha * 1.5),
+            layerColor.withValues(alpha: alpha),
+            layerColor.withValues(alpha: 0.0),
+          ],
+          [0.0, 0.5, 1.0],
+        )
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(
+        center + Offset(drift * (i - 1.5), drift * (i - 2)),
+        layerR,
+        _p,
+      );
+    }
+
+    // Core glow
+    _p.shader = ui.Gradient.radial(
+      center,
+      r * 0.6,
+      [
+        Colors.white.withValues(alpha: 0.3),
+        color.withValues(alpha: 0.4),
+        color.withValues(alpha: 0.0),
+      ],
+      [0.0, 0.4, 1.0],
+    );
+    canvas.drawCircle(center, r * 0.6, _p);
+
+    // Internal sparkle stars
+    _p
+      ..shader = null
+      ..style = PaintingStyle.fill;
+    for (var i = 0; i < 6; i++) {
+      final angle = i * (pi / 3) + gameTime * 0.3;
+      final dist = r * (0.3 + 0.3 * sin(i * 2.1 + gameTime * 0.8));
+      final starPos = center + Offset(cos(angle) * dist, sin(angle) * dist);
+      final starAlpha = (0.4 + 0.4 * sin(gameTime * 2.0 + i * 1.3)).clamp(0.0, 1.0);
+      _p.color = Colors.white.withValues(alpha: starAlpha);
+      canvas.drawCircle(starPos, (r * 0.04).clamp(1.0, 3.0), _p);
+    }
+  }
+
+  static void _paintStarCluster(
+    Canvas canvas,
+    Offset center,
+    double r,
+    Color color,
+    double gameTime,
+  ) {
+    // Warm outer glow
+    _p
+      ..shader = ui.Gradient.radial(
+        center,
+        r * 1.8,
+        [
+          color.withValues(alpha: 0.15),
+          color.withValues(alpha: 0.05),
+          color.withValues(alpha: 0.0),
+        ],
+        [0.0, 0.5, 1.0],
+      )
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, r * 1.8, _p);
+
+    // Bright central core with 3D gradient
+    final focal = center + Offset(-r * 0.3, -r * 0.3);
+    final light = _lerpColor(color, Colors.white, 0.5);
+    final dark = _lerpColor(color, Colors.black, 0.4);
+    _p.shader = ui.Gradient.radial(
+      center,
+      r * 0.5,
+      [light, color, dark],
+      [0.0, 0.5, 1.0],
+      TileMode.clamp,
+      null,
+      focal,
+      r * 0.05,
+    );
+    canvas.drawCircle(center, r * 0.5, _p);
+
+    // Specular on core
+    if (r > 8) {
+      _p
+        ..shader = null
+        ..color = Colors.white.withValues(alpha: 0.6);
+      canvas.drawCircle(center + Offset(-r * 0.15, -r * 0.15), r * 0.06, _p);
+    }
+
+    // Surrounding stars (5-8 small dots)
+    _p
+      ..shader = null
+      ..style = PaintingStyle.fill;
+    const starCount = 7;
+    for (var i = 0; i < starCount; i++) {
+      final angle = i * (2 * pi / starCount) + gameTime * 0.15;
+      final dist = r * (0.65 + 0.15 * sin(i * 1.8 + gameTime * 0.6));
+      final starPos = center + Offset(cos(angle) * dist, sin(angle) * dist);
+      final starSize = (r * 0.08 + r * 0.04 * sin(gameTime * 1.5 + i * 0.9))
+          .clamp(1.5, 5.0);
+      final starAlpha = (0.5 + 0.4 * sin(gameTime * 2.0 + i * 1.1)).clamp(0.0, 1.0);
+
+      // Star glow
+      _p.color = color.withValues(alpha: starAlpha * 0.3);
+      canvas.drawCircle(starPos, starSize * 2.0, _p);
+
+      // Star body
+      _p.color = _lerpColor(color, Colors.white, 0.4).withValues(alpha: starAlpha);
+      canvas.drawCircle(starPos, starSize, _p);
+    }
+  }
+
+  static void _paintGalaxy(
+    Canvas canvas,
+    Offset center,
+    double r,
+    Color color,
+    double gameTime,
+  ) {
+    final rotation = gameTime * 0.2;
+    final bright = _lerpColor(color, Colors.white, 0.5);
+    final dark = _lerpColor(color, Colors.black, 0.3);
+
+    // Outer halo
+    _p
+      ..shader = ui.Gradient.radial(
+        center,
+        r * 1.5,
+        [
+          color.withValues(alpha: 0.08),
+          color.withValues(alpha: 0.03),
+          color.withValues(alpha: 0.0),
+        ],
+        [0.0, 0.5, 1.0],
+      )
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, r * 1.5, _p);
+
+    // Spiral arms (2 arms, each drawn with dots)
+    _p.shader = null;
+    for (var arm = 0; arm < 2; arm++) {
+      final armOffset = arm * pi;
+      const dotCount = 20;
+      for (var i = 0; i < dotCount; i++) {
+        final t = i / dotCount;
+        final angle = rotation + armOffset + t * pi * 2.5;
+        final dist = r * 0.2 + r * 0.8 * t;
+        final spread = r * 0.08 * (1.0 + t);
+        final jitterX = sin(i * 3.7 + gameTime) * spread;
+        final jitterY = cos(i * 2.3 + gameTime) * spread;
+        final dotPos = center +
+            Offset(
+              cos(angle) * dist + jitterX,
+              sin(angle) * dist * 0.6 + jitterY,
+            );
+        final dotAlpha = (0.3 + 0.5 * (1.0 - t)).clamp(0.0, 1.0);
+        final dotSize = (r * 0.04 * (1.0 + 0.5 * (1.0 - t))).clamp(1.0, 4.0);
+        final dotColor = t < 0.4 ? bright : color;
+
+        _p.color = dotColor.withValues(alpha: dotAlpha);
+        canvas.drawCircle(dotPos, dotSize, _p);
+      }
+    }
+
+    // Bright central core (3D)
+    final focal = center + Offset(-r * 0.15, -r * 0.15);
+    _p.shader = ui.Gradient.radial(
+      center,
+      r * 0.3,
+      [Colors.white.withValues(alpha: 0.8), bright, color, dark],
+      [0.0, 0.2, 0.6, 1.0],
+      TileMode.clamp,
+      null,
+      focal,
+      r * 0.03,
+    );
+    canvas.drawCircle(center, r * 0.3, _p);
+
+    // Specular on core
+    if (r > 10) {
+      _p
+        ..shader = null
+        ..color = Colors.white.withValues(alpha: 0.7);
+      canvas.drawCircle(center + Offset(-r * 0.08, -r * 0.08), r * 0.05, _p);
+    }
   }
 
   // ─── Helpers ───────────────────────────────────────────────

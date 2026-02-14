@@ -68,6 +68,25 @@ abstract final class VoidSurgeConstants {
   static const double whiteDwarfScoreMultiplier = 3.0;
   static const double whiteDwarfDuration = 8.0;
   static const double blackDwarfMassBoostRatio = 0.5;
+  static const double blackDwarfMassMin = 0.3;
+  static const double blackDwarfMassMax = 0.5;
+
+  // Large celestial bodies
+  static const double nebulaMassThreshold = 5.0;
+  static const double starClusterMassThreshold = 15.0;
+  static const double galaxyMassThreshold = 30.0;
+  static const double nebulaMassMin = 2.0;
+  static const double nebulaMassMax = 4.0;
+  static const double starClusterMassMin = 5.0;
+  static const double starClusterMassMax = 8.0;
+  static const double galaxyMassMin = 10.0;
+  static const double galaxyMassMax = 15.0;
+  static const double largeCelestialSpawnInterval = 5.0;
+  static const int maxNebulas = 3;
+  static const int maxStarClusters = 2;
+  static const int maxGalaxies = 1;
+  static const int starClusterScoreMultiplier = 2;
+  static const int galaxyScoreMultiplier = 5;
 
   // Colors
   static const Color playerColor = Color(0xFF6644FF);
@@ -79,4 +98,7 @@ abstract final class VoidSurgeConstants {
   static const Color redDwarfColor = Color(0xFFFF4422);
   static const Color whiteDwarfColor = Color(0xFFEEEEFF);
   static const Color blackDwarfColor = Color(0xFF334455);
+  static const Color nebulaColor = Color(0xFFAA44FF);
+  static const Color starClusterColor = Color(0xFFFFDD44);
+  static const Color galaxyColor = Color(0xFF44AAFF);
 }

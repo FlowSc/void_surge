@@ -6,7 +6,7 @@ part of 'void_surge_notifier.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$voidSurgeNotifierHash() => r'7f20dcccbde0e1e097e21a047d31c6da7a620429';
+String _$voidSurgeNotifierHash() => r'1de573d01964dbc328e1377e61a0bec603295a0d';
 
 /// See also [VoidSurgeNotifier].
 @ProviderFor(VoidSurgeNotifier)

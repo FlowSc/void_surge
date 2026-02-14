@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:void_surge/core/providers/settings_provider.dart';
 import 'package:void_surge/core/providers/tutorial_provider.dart';
+import 'package:void_surge/core/services/audio_service.dart';
 import 'package:void_surge/features/game/models/game_world.dart';
 import 'package:void_surge/features/game/painters/void_surge_painter.dart';
 import 'package:void_surge/features/game/providers/void_surge_notifier.dart';
@@ -23,6 +25,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
   late final Ticker _ticker;
   Duration _lastTime = Duration.zero;
   late bool _showingTutorial;
+  bool _bgmStarted = false;
 
   @override
   void initState() {
@@ -31,6 +34,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
     _ticker = createTicker(_onTick);
     if (!_showingTutorial) {
       _ticker.start();
+    }
+    _startBgmIfEnabled();
+  }
+
+  void _startBgmIfEnabled() {
+    final settings = ref.read(settingsProvider);
+    if (settings.bgmEnabled) {
+      ref.read(audioServiceProvider).playBgm();
+      _bgmStarted = true;
     }
   }
 
@@ -53,6 +65,25 @@ class _GameScreenState extends ConsumerState<GameScreen>
   @override
   Widget build(BuildContext context) {
     final world = ref.watch(voidSurgeNotifierProvider);
+
+    // React to BGM setting changes
+    ref.listen(settingsProvider.select((s) => s.bgmEnabled),
+        (bool? prev, bool next) {
+      final audio = ref.read(audioServiceProvider);
+      if (next) {
+        audio.playBgm();
+        _bgmStarted = true;
+      } else {
+        audio.stopBgm();
+        _bgmStarted = false;
+      }
+    });
+
+    // Stop BGM on game over
+    if (world.status == GameStatus.gameOver && _bgmStarted) {
+      ref.read(audioServiceProvider).stopBgm();
+      _bgmStarted = false;
+    }
 
     return Scaffold(
       body: LayoutBuilder(
@@ -102,8 +133,10 @@ class _GameScreenState extends ConsumerState<GameScreen>
                       ref
                           .read(voidSurgeNotifierProvider.notifier)
                           .restart();
+                      _startBgmIfEnabled();
                     },
                     onHome: () {
+                      ref.read(audioServiceProvider).stopBgm();
                       Navigator.of(context).pop();
                     },
                   ),

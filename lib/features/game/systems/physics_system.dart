@@ -176,6 +176,7 @@ abstract final class PhysicsSystem {
         // Special planet effects
         double? speedBoostEnd;
         double? scoreMultiplierEnd;
+        var bonusScoreMultiplier = 1;
         switch (planet.type) {
           case PlanetType.redDwarf:
             speedBoostEnd =
@@ -185,6 +186,12 @@ abstract final class PhysicsSystem {
                 world.gameTime + VoidSurgeConstants.whiteDwarfDuration;
           case PlanetType.blackDwarf:
             newMass += player.mass * VoidSurgeConstants.blackDwarfMassBoostRatio;
+          case PlanetType.nebula:
+            break;
+          case PlanetType.starCluster:
+            bonusScoreMultiplier = VoidSurgeConstants.starClusterScoreMultiplier;
+          case PlanetType.galaxy:
+            bonusScoreMultiplier = VoidSurgeConstants.galaxyScoreMultiplier;
           case PlanetType.normal:
             break;
         }
@@ -194,7 +201,9 @@ abstract final class PhysicsSystem {
             player.hasScoreMultiplier(world.gameTime)
                 ? VoidSurgeConstants.whiteDwarfScoreMultiplier.toInt()
                 : 1;
-        final points = VoidSurgeConstants.pointsPerPlanet * scoreMultiplier;
+        final points = VoidSurgeConstants.pointsPerPlanet *
+            scoreMultiplier *
+            bonusScoreMultiplier;
 
         player = player.copyWith(
           entity: player.entity.copyWith(mass: newMass),
@@ -212,6 +221,7 @@ abstract final class PhysicsSystem {
           startTime: world.gameTime,
           duration: VoidSurgeConstants.absorptionEffectDuration,
           initialRadius: planet.radius,
+          absorbedMass: planet.mass,
         ));
       } else {
         remainingPlanets.add(planet);
@@ -241,6 +251,7 @@ abstract final class PhysicsSystem {
             startTime: world.gameTime,
             duration: VoidSurgeConstants.absorptionEffectDuration,
             initialRadius: planet.radius,
+            absorbedMass: planet.mass,
           ));
           eaten = true;
           break;
@@ -278,6 +289,7 @@ abstract final class PhysicsSystem {
             startTime: world.gameTime,
             duration: VoidSurgeConstants.absorptionEffectDuration * 1.5,
             initialRadius: enemy.radius,
+            absorbedMass: enemy.mass,
           ));
         } else {
           // Player dies

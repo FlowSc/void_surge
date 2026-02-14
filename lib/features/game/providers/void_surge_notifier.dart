@@ -3,6 +3,9 @@ import 'dart:ui';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:void_surge/core/constants/void_surge_constants.dart';
+import 'package:void_surge/core/providers/settings_provider.dart';
+import 'package:void_surge/core/services/audio_service.dart';
+import 'package:void_surge/core/services/haptic_service.dart';
 import 'package:void_surge/features/game/models/game_world.dart';
 import 'package:void_surge/features/game/systems/ai_system.dart';
 import 'package:void_surge/features/game/systems/camera_system.dart';
@@ -14,6 +17,8 @@ part 'void_surge_notifier.g.dart';
 
 @riverpod
 class VoidSurgeNotifier extends _$VoidSurgeNotifier {
+  Set<int> _prevEffectIds = {};
+
   @override
   GameWorld build() {
     return GameWorld.initial();
@@ -22,6 +27,7 @@ class VoidSurgeNotifier extends _$VoidSurgeNotifier {
   void update(double dt) {
     if (state.status != GameStatus.playing) return;
     if (!state.player.isAlive) {
+      _onGameOver();
       state = state.copyWith(status: GameStatus.gameOver);
       return;
     }
@@ -44,8 +50,15 @@ class VoidSurgeNotifier extends _$VoidSurgeNotifier {
     // Player movement toward target
     world = _applyPlayerMovement(world, clampedDt);
 
+    // Capture effect IDs before physics
+    final prevIds = _prevEffectIds;
+
     // Physics (gravity + collisions)
     world = PhysicsSystem.update(world, clampedDt);
+
+    // Detect new absorption effects
+    _handleNewAbsorptions(world, prevIds);
+    _prevEffectIds = world.absorptionEffects.map((e) => e.id).toSet();
 
     // Escape system
     world = EscapeSystem.update(world);
@@ -55,10 +68,39 @@ class VoidSurgeNotifier extends _$VoidSurgeNotifier {
 
     // Death check
     if (!world.player.isAlive) {
+      _onGameOver();
       world = world.copyWith(status: GameStatus.gameOver);
     }
 
     state = world;
+  }
+
+  void _handleNewAbsorptions(GameWorld world, Set<int> prevIds) {
+    final settings = ref.read(settingsProvider);
+    var maxMass = 0.0;
+
+    for (final effect in world.absorptionEffects) {
+      if (!prevIds.contains(effect.id) && effect.absorbedMass > 0) {
+        if (effect.absorbedMass > maxMass) {
+          maxMass = effect.absorbedMass;
+        }
+      }
+    }
+
+    if (maxMass > 0) {
+      HapticService.trigger(maxMass, enabled: settings.hapticEnabled);
+      if (settings.sfxEnabled) {
+        final sfxType = AudioService.sfxTypeForMass(maxMass);
+        ref.read(audioServiceProvider).playSfx(sfxType);
+      }
+    }
+  }
+
+  void _onGameOver() {
+    final settings = ref.read(settingsProvider);
+    if (settings.sfxEnabled) {
+      ref.read(audioServiceProvider).playSfx(SfxType.gameOver);
+    }
   }
 
   GameWorld _applyPlayerMovement(GameWorld world, double dt) {

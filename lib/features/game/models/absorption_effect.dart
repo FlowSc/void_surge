@@ -10,6 +10,7 @@ class AbsorptionEffect {
   final double startTime;
   final double duration;
   final double initialRadius;
+  final double absorbedMass;
 
   const AbsorptionEffect({
     required this.id,
@@ -19,6 +20,7 @@ class AbsorptionEffect {
     required this.startTime,
     required this.duration,
     required this.initialRadius,
+    this.absorbedMass = 0,
   });
 
   double progress(double gameTime) {

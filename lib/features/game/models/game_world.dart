@@ -37,6 +37,7 @@ class GameWorld {
   final int nextEntityId;
   final double lastPlanetSpawnTime;
   final double lastEnemySpawnTime;
+  final double lastLargeCelestialSpawnTime;
   final int enemiesSpawned;
 
   const GameWorld({
@@ -52,6 +53,7 @@ class GameWorld {
     this.nextEntityId = 100,
     this.lastPlanetSpawnTime = 0,
     this.lastEnemySpawnTime = 0,
+    this.lastLargeCelestialSpawnTime = 0,
     this.enemiesSpawned = 0,
   });
 
@@ -86,7 +88,14 @@ class GameWorld {
 
       final double mass;
       if (isSpecial) {
-        mass = 0.5 + rng.nextDouble() * 0.4;
+        if (planetType == PlanetType.blackDwarf) {
+          mass = VoidSurgeConstants.blackDwarfMassMin +
+              rng.nextDouble() *
+                  (VoidSurgeConstants.blackDwarfMassMax -
+                      VoidSurgeConstants.blackDwarfMassMin);
+        } else {
+          mass = 0.5 + rng.nextDouble() * 0.4;
+        }
       } else {
         mass = VoidSurgeConstants.planetMinMass +
             rng.nextDouble() *
@@ -124,9 +133,12 @@ class GameWorld {
     return colors[rng.nextInt(colors.length)];
   }
 
+  /// Weighted random: redDwarf 40%, whiteDwarf 40%, blackDwarf 20%
   static PlanetType _randomSpecialType(Random rng) {
-    const types = [PlanetType.redDwarf, PlanetType.whiteDwarf, PlanetType.blackDwarf];
-    return types[rng.nextInt(types.length)];
+    final roll = rng.nextDouble();
+    if (roll < 0.4) return PlanetType.redDwarf;
+    if (roll < 0.8) return PlanetType.whiteDwarf;
+    return PlanetType.blackDwarf;
   }
 
   static Color _specialPlanetColor(PlanetType type) {
@@ -134,6 +146,9 @@ class GameWorld {
       PlanetType.redDwarf => VoidSurgeConstants.redDwarfColor,
       PlanetType.whiteDwarf => VoidSurgeConstants.whiteDwarfColor,
       PlanetType.blackDwarf => VoidSurgeConstants.blackDwarfColor,
+      PlanetType.nebula => VoidSurgeConstants.nebulaColor,
+      PlanetType.starCluster => VoidSurgeConstants.starClusterColor,
+      PlanetType.galaxy => VoidSurgeConstants.galaxyColor,
       PlanetType.normal => VoidSurgeConstants.planetColor,
     };
   }
@@ -151,6 +166,7 @@ class GameWorld {
     int? nextEntityId,
     double? lastPlanetSpawnTime,
     double? lastEnemySpawnTime,
+    double? lastLargeCelestialSpawnTime,
     int? enemiesSpawned,
   }) {
     return GameWorld(
@@ -166,6 +182,8 @@ class GameWorld {
       nextEntityId: nextEntityId ?? this.nextEntityId,
       lastPlanetSpawnTime: lastPlanetSpawnTime ?? this.lastPlanetSpawnTime,
       lastEnemySpawnTime: lastEnemySpawnTime ?? this.lastEnemySpawnTime,
+      lastLargeCelestialSpawnTime:
+          lastLargeCelestialSpawnTime ?? this.lastLargeCelestialSpawnTime,
       enemiesSpawned: enemiesSpawned ?? this.enemiesSpawned,
     );
   }

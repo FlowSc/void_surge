@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:void_surge/features/game/models/entity.dart';
 import 'package:void_surge/features/game/models/vec2.dart';
 
-enum PlanetType { normal, redDwarf, whiteDwarf, blackDwarf }
+enum PlanetType { normal, redDwarf, whiteDwarf, blackDwarf, nebula, starCluster, galaxy }
 
 class Planet {
   final Entity entity;
